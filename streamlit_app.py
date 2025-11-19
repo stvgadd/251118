@@ -1,11 +1,36 @@
 import streamlit as st
 from openai import OpenAI
 import base64
+import time
+from contextlib import contextmanager
 
 st.set_page_config(page_title="OpenAI Chat + Image Generator", layout="centered")
 st.title("🎨 OpenAI Chat + Image Generator (Streamlit)")
 
 st.write("텍스트 응답 또는 이미지 생성을 선택할 수 있는 웹앱입니다.")
+
+
+# 폴백: Streamlit에 `status` 또는 `write_stream`가 없는 환경일 수 있으므로 간단한 구현을 추가합니다.
+if not hasattr(st, "status"):
+    @contextmanager
+    def _status(msg: str):
+        with st.spinner(msg):
+            yield
+
+    st.status = _status
+
+if not hasattr(st, "write_stream"):
+    def _write_stream(container, text: str, chunk_size: int = 64, delay: float = 0.01):
+        # container: a DeltaGenerator (e.g., st.empty() or inside st.chat_message())
+        for i in range(0, len(text), chunk_size):
+            part = text[: i + chunk_size]
+            try:
+                container.write(part)
+            except Exception:
+                container.text(part)
+            time.sleep(delay)
+
+    st.write_stream = _write_stream
 
 
 
@@ -104,50 +129,61 @@ with tab3:
     if "chat_messages" not in st.session_state:
         st.session_state["chat_messages"] = []
 
-    # 대화 표시
+    # 기존 대화 표시 (st.chat_message 사용)
     for msg in st.session_state["chat_messages"]:
         role = msg.get("role", "user")
         content = msg.get("content", "")
         if role == "user":
-            st.markdown(f"**You:** {content}")
+            with st.chat_message("user"):
+                st.write(content)
         else:
-            st.markdown(f"**Assistant:** {content}")
+            with st.chat_message("assistant"):
+                st.write(content)
 
-    # 입력창 및 Clear 버튼
-    input_col, clear_col = st.columns([4, 1])
-    with input_col:
-        st.text_input("메시지 입력", key="chat_input_tab3")
-    with clear_col:
+    # 입력: st.chat_input 사용, 우측에 Clear 버튼 배치
+    col_input, col_clear = st.columns([8, 1])
+    with col_input:
+        user_input = st.chat_input("메시지를 입력하고 Enter를 누르세요...")
+    with col_clear:
         if st.button("Clear", key="chat_clear_tab3"):
             st.session_state["chat_messages"] = []
-            st.session_state["chat_input_tab3"] = ""
             st.experimental_rerun()
 
-    # 보내기 버튼 처리
-    if st.button("보내기", key="chat_send_tab3"):
+    # 사용자가 메시지를 입력하면 처리
+    if user_input:
         if not api_key:
             st.error("❌ API Key를 입력하세요.")
-            st.stop()
-        if not st.session_state.get("chat_input_tab3", "").strip():
-            st.error("❌ 메시지를 입력하세요.")
-            st.stop()
+        else:
+            # 사용자 메시지 저장 및 즉시 표시
+            st.session_state["chat_messages"].append({"role": "user", "content": user_input})
+            with st.chat_message("user"):
+                st.write(user_input)
 
-        user_text = st.session_state.get("chat_input_tab3", "").strip()
-        st.session_state["chat_messages"].append({"role": "user", "content": user_text})
+            # 전체 대화 합치기(왼쪽: User / Assistant 태그 포함)
+            convo = []
+            for m in st.session_state["chat_messages"]:
+                if m["role"] == "user":
+                    convo.append("User: " + m["content"])
+                else:
+                    convo.append("Assistant: " + m["content"])
+            convo_text = "\n".join(convo)
 
-        # 대화 전체를 하나의 프롬프트로 결합
-        convo = []
-        for m in st.session_state["chat_messages"]:
-            if m["role"] == "user":
-                convo.append("User: " + m["content"])
-            else:
-                convo.append("Assistant: " + m["content"])
-        convo_text = "\n".join(convo)
+            # 상태 표시(폴백으로 spinner 사용) 및 스트리밍 출력
+            with st.status("AI가 응답을 생성 중입니다..."):
+                assistant_text = get_text_answer(api_key, convo_text)
 
-        st.info("AI가 응답을 생성 중입니다...")
-        assistant_text = get_text_answer(api_key, convo_text)
+            # 어시스턴트 메시지용 채팅 블록을 만들고 스트리밍으로 출력
+            with st.chat_message("assistant") as chat_blk:
+                placeholder = st.empty()
+                # st.write_stream이 있으면 이를 사용하여 점진적으로 출력
+                try:
+                    st.write_stream(placeholder, assistant_text, chunk_size=64, delay=0.01)
+                except Exception:
+                    # 폴백: 점진적으로 업데이트
+                    for i in range(0, len(assistant_text), 64):
+                        placeholder.write(assistant_text[: i + 64])
+                        time.sleep(0.01)
 
-        st.session_state["chat_messages"].append({"role": "assistant", "content": assistant_text})
-        st.session_state["chat_input_tab3"] = ""
-        st.experimental_rerun()
+            # 세션에 어시스턴트 응답 저장
+            st.session_state["chat_messages"].append({"role": "assistant", "content": assistant_text})
 
