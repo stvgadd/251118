@@ -7,22 +7,39 @@ st.title("🎨 OpenAI Chat + Image Generator (Streamlit)")
 
 st.write("텍스트 응답 또는 이미지 생성을 선택할 수 있는 웹앱입니다.")
 
-# ------------------------------------
-# 사용자 API 키 입력
-# ------------------------------------
-# 세션 상태에 API Key를 저장하여 다른 페이지로 이동했다가 돌아와도 입력값이 유지되도록 합니다.
+
+
+@st.cache_data
+def get_text_answer(api_key: str, prompt: str) -> str:
+    client = OpenAI(api_key=api_key)
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input=prompt,
+        max_output_tokens=300,
+    )
+    return response.output_text
+
+
+@st.cache_data
+def generate_image_bytes(api_key: str, img_prompt: str) -> bytes:
+    client = OpenAI(api_key=api_key)
+    img = client.images.generate(
+        model="gpt-image-1-mini",
+        prompt=img_prompt
+    )
+    return base64.b64decode(img.data[0].b64_json)
+
+
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
-# `key` 파라미터를 사용하면 Streamlit이 입력값을 `st.session_state`에 자동으로 저장합니다.
+
 api_key = st.text_input("🔑 OpenAI API Key 입력", type="password", key="api_key")
 
-# 탭 구성
+
 tab1, tab2 = st.tabs(["💬 텍스트 질문하기", "🖼 이미지 생성하기"])
 
-# =======================================================
 # 1️⃣ 텍스트 질문 기능
-# =======================================================
 with tab1:
     st.subheader("💬 텍스트 질문하기")
 
@@ -53,9 +70,7 @@ with tab1:
 
 
 
-# =======================================================
 # 2️⃣ 이미지 생성 기능
-# =======================================================
 with tab2:
     st.subheader("🖼 이미지 생성하기")
 
@@ -90,7 +105,6 @@ with tab2:
         st.success("✅ 이미지 생성 완료!")
         st.image(image_bytes, caption="Generated Image", use_column_width=True)
 
-        # 다운로드 버튼 추가
         st.download_button(
             label="📥 이미지 다운로드",
             data=image_bytes,
