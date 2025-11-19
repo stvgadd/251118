@@ -37,7 +37,7 @@ if "api_key" not in st.session_state:
 api_key = st.text_input("🔑 OpenAI API Key 입력", type="password", key="api_key")
 
 
-tab1, tab2 = st.tabs(["💬 텍스트 질문하기", "🖼 이미지 생성하기"])
+tab1, tab2, tab3 = st.tabs(["💬 텍스트 질문하기", "🖼 이미지 생성하기", "🤖 챗봇"])
 
 # 1️⃣ 텍스트 질문 기능
 with tab1:
@@ -94,4 +94,60 @@ with tab2:
             file_name="generated_image.png",
             mime="image/png"
         )
+
+
+# 3️⃣ 챗봇 (Responses API 사용자 인터페이스)
+with tab3:
+    st.subheader("🤖 챗봇 (OpenAI Responses API)")
+
+    # 대화 기록 초기화
+    if "chat_messages" not in st.session_state:
+        st.session_state["chat_messages"] = []
+
+    # 대화 표시
+    for msg in st.session_state["chat_messages"]:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role == "user":
+            st.markdown(f"**You:** {content}")
+        else:
+            st.markdown(f"**Assistant:** {content}")
+
+    # 입력창 및 Clear 버튼
+    input_col, clear_col = st.columns([4, 1])
+    with input_col:
+        st.text_input("메시지 입력", key="chat_input_tab3")
+    with clear_col:
+        if st.button("Clear", key="chat_clear_tab3"):
+            st.session_state["chat_messages"] = []
+            st.session_state["chat_input_tab3"] = ""
+            st.experimental_rerun()
+
+    # 보내기 버튼 처리
+    if st.button("보내기", key="chat_send_tab3"):
+        if not api_key:
+            st.error("❌ API Key를 입력하세요.")
+            st.stop()
+        if not st.session_state.get("chat_input_tab3", "").strip():
+            st.error("❌ 메시지를 입력하세요.")
+            st.stop()
+
+        user_text = st.session_state.get("chat_input_tab3", "").strip()
+        st.session_state["chat_messages"].append({"role": "user", "content": user_text})
+
+        # 대화 전체를 하나의 프롬프트로 결합
+        convo = []
+        for m in st.session_state["chat_messages"]:
+            if m["role"] == "user":
+                convo.append("User: " + m["content"])
+            else:
+                convo.append("Assistant: " + m["content"])
+        convo_text = "\n".join(convo)
+
+        st.info("AI가 응답을 생성 중입니다...")
+        assistant_text = get_text_answer(api_key, convo_text)
+
+        st.session_state["chat_messages"].append({"role": "assistant", "content": assistant_text})
+        st.session_state["chat_input_tab3"] = ""
+        st.experimental_rerun()
 
