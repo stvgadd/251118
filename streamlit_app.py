@@ -3,6 +3,7 @@ from openai import OpenAI
 import base64
 import time
 from contextlib import contextmanager
+from streamlit.components.v1 import html as st_html
 
 st.set_page_config(page_title="OpenAI Chat + Image Generator", layout="centered")
 st.title("🎨 OpenAI Chat + Image Generator (Streamlit)")
@@ -139,6 +140,12 @@ with tab3:
         else:
             with st.chat_message("assistant"):
                 st.write(content)
+
+    # 메시지 렌더링 후 자동으로 아래로 스크롤해서 입력창이 항상 보이도록 함
+    try:
+        st_html("<script>window.scrollTo(0, document.body.scrollHeight);</script>", height=100)
+    except Exception:
+        pass
 
     # 입력: st.chat_input 사용, 우측에 Clear 버튼 배치
     col_input, col_clear = st.columns([8, 1])
