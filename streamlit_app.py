@@ -35,19 +35,18 @@ with tab1:
 
         st.info("AI가 답변을 생성 중입니다...")
 
-        try:
-            response = client.responses.create(
-                model="gpt-4o-mini",
-                input=prompt,
-                max_output_tokens=300,
-            )
+        
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            input=prompt,
+            max_output_tokens=300,
+        )
 
-            answer = response.output_text
-            st.success("✅ 응답 완료")
-            st.write(answer)
+        answer = response.output_text
+        st.success("✅ 응답 완료")
+        st.write(answer)
 
-        except Exception as e:
-            st.error(f"❌ 오류: {e}")
+
 
 # =======================================================
 # 2️⃣ 이미지 생성 기능
@@ -73,25 +72,24 @@ with tab2:
 
         st.info("🎨 이미지를 생성 중입니다... 잠시만 기다리세요.")
 
-        try:
-            img = client.images.generate(
-                model="gpt-image-1-mini",
-                prompt=img_prompt
-            )
+        
+            
+        img = client.images.generate(
+            model="gpt-image-1-mini",
+            prompt=img_prompt
+        )
 
-            # base64 디코딩
-            image_bytes = base64.b64decode(img.data[0].b64_json)
+        # base64 디코딩
+        image_bytes = base64.b64decode(img.data[0].b64_json)
 
-            st.success("✅ 이미지 생성 완료!")
-            st.image(image_bytes, caption="Generated Image", use_column_width=True)
+        st.success("✅ 이미지 생성 완료!")
+        st.image(image_bytes, caption="Generated Image", use_column_width=True)
 
-            # 다운로드 버튼 추가
-            st.download_button(
-                label="📥 이미지 다운로드",
-                data=image_bytes,
-                file_name="generated_image.png",
-                mime="image/png"
-            )
+        # 다운로드 버튼 추가
+        st.download_button(
+            label="📥 이미지 다운로드",
+            data=image_bytes,
+            file_name="generated_image.png",
+            mime="image/png"
+        )
 
-        except Exception as e:
-            st.error(f"❌ 이미지 생성 중 오류 발생: {e}")
