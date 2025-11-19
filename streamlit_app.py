@@ -53,18 +53,10 @@ with tab1:
             st.error("❌ 질문을 입력하세요.")
             st.stop()
 
-        client = OpenAI(api_key=api_key)
-
         st.info("AI가 답변을 생성 중입니다...")
 
-        
-        response = client.responses.create(
-            model="gpt-4o-mini",
-            input=prompt,
-            max_output_tokens=300,
-        )
-
-        answer = response.output_text
+        # 캐시된 함수 호출: 동일한 api_key+prompt이면 캐시된 결과 반환
+        answer = get_text_answer(api_key, prompt)
         st.success("✅ 응답 완료")
         st.write(answer)
 
@@ -88,19 +80,10 @@ with tab2:
             st.error("❌ 이미지 프롬프트를 입력하세요.")
             st.stop()
 
-        client = OpenAI(api_key=api_key)
-
         st.info("🎨 이미지를 생성 중입니다... 잠시만 기다리세요.")
 
-        
-            
-        img = client.images.generate(
-            model="gpt-image-1-mini",
-            prompt=img_prompt
-        )
-
-        # base64 디코딩
-        image_bytes = base64.b64decode(img.data[0].b64_json)
+        # 캐시된 함수 호출: 동일한 api_key+img_prompt이면 캐시된 이미지 바이트 반환
+        image_bytes = generate_image_bytes(api_key, img_prompt)
 
         st.success("✅ 이미지 생성 완료!")
         st.image(image_bytes, caption="Generated Image", use_column_width=True)
